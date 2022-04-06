@@ -1,2 +1,2 @@
 #!/bin/sh
-gcc $1 && ./a.out; rm a.out
+gcc $1 -lm && ./a.out; rm a.out

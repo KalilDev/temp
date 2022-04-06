@@ -1,9 +1,11 @@
 #include <math.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
 #include "hack.h"
+
 #define FLOAT_CONVERSION_BLOCK(a, b, a_from_b_block, b_from_a_block)\
 float a ## _from_ ## b(float b) a_from_b_block \
 \
@@ -207,6 +209,156 @@ float hipotenusa_de_catetos(float a, float b) {
     float a2 = SQUARE(a);
     float b2 = SQUARE(b);
     return sqrtf(a2+b2);
+}
+
+unsigned char ascii_to_uppercase(unsigned char input_char) {
+    const unsigned char a_lowercase = 'a';
+    const unsigned char a_uppercase = 'A';
+    const unsigned char z_lowercase = 'z';
+    if (input_char < a_lowercase || input_char > z_lowercase) {
+        return input_char;
+    }
+    
+    unsigned char alphabet_i = input_char-a_lowercase;
+
+    return a_uppercase + alphabet_i;
+}
+
+unsigned int invert_number(unsigned int number) {
+    unsigned int result = 0;
+    unsigned int acc = number;
+    while (acc != 0) {
+        unsigned int rightmost_digit = acc % 10;
+        acc/=10;
+        result*=10;
+        result+=rightmost_digit;
+    }
+    return result;
+}
+
+size_t number_width(unsigned int number) {
+    size_t width = 0;
+    while (number != 0) {
+        number/=10;
+        width++;
+    }
+    return width;
+}
+
+void number_to_digits(unsigned int number, unsigned char *digits, size_t count) {
+    size_t width = number_width(number);
+    assert(width <= count);
+    for (size_t i = width; i >=0; i--) {
+        unsigned int rightmost_digit = number % 10;
+        number/=10;
+        digits[i]=rightmost_digit;
+    }
+}
+
+typedef unsigned int datetime_t;
+const unsigned int segundos_por_minuto = 60;
+const unsigned int minutos_por_hora = 60;
+const unsigned int segundos_por_hora = segundos_por_minuto*minutos_por_hora;
+datetime_t datetime_from_seconds(unsigned int seconds) {
+    return seconds;
+}
+
+datetime_t datetime_from_minutes(unsigned int minutes) {
+    return minutes*segundos_por_minuto;
+}
+
+datetime_t datetime_from_hours(unsigned int hours) {
+    return hours*segundos_por_hora;
+}
+
+datetime_t datetime_from_components(unsigned int seconds, unsigned int minutes, unsigned int hours) {
+    return datetime_from_seconds(seconds) + datetime_from_minutes(minutes) + datetime_from_hours(hours);
+}
+
+datetime_t datetime_as_seconds(datetime_t datetime) {
+    return datetime;
+}
+
+datetime_t datetime_as_minutes(datetime_t datetime) {
+    return datetime / segundos_por_minuto;
+}
+
+datetime_t datetime_as_hours(datetime_t datetime) {
+    return datetime / segundos_por_hora;
+}
+
+void datetime_to_components(datetime_t datetime, unsigned int* seconds, unsigned int* minutes, unsigned int* hours) {
+    *seconds = datetime_as_seconds(datetime) % segundos_por_minuto;
+    *minutes = datetime_as_minutes(datetime) % minutos_por_hora;
+    *hours = datetime_as_hours(datetime);
+}
+
+typedef struct {
+    float x;
+    float y;
+} vec2f;
+
+float vec2f_distance_squared(vec2f v) {
+    float x = v.x;
+    float y = v.y;
+    return SQUARE(x) + SQUARE(y);
+}
+
+float vec2f_distance(vec2f v) {
+    float d2 = vec2f_distance_squared(v);
+    return sqrtf(d2);
+}
+
+const vec2f vec2f_zero = {0.0, 0.0};
+
+vec2f vec2f_sub(vec2f a, vec2f b) {
+    vec2f r;
+    r.x = a.x - b.x;
+    r.y = a.y - b.y;
+    return r;
+}
+
+vec2f vec2f_add(vec2f a, vec2f b) {
+    vec2f r;
+    r.x = a.x + b.x;
+    r.y = a.y + b.y;
+    return r;
+}
+
+vec2f vec2f_from_coords(float coords[2]) {
+    vec2f r = {
+        .x = coords[0],
+        .y = coords[1]
+    };
+    return r;
+}
+
+void divide_floats_to(float divisor, float *input, float* output, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        float result = input[i]/divisor;
+        output[i] = result;
+    }
+}
+
+void divide_floats_to_restrict(float divisor,  float *restrict input, float* restrict output, size_t count)  {
+    for (size_t i = 0; i < count; i++) {
+        float result = input[i]/divisor;
+        output[i] = result;
+    }
+}
+
+void multiply_floats_to(float divisor, float *input, float* output, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        float result = input[i]*divisor;
+        output[i] = result;
+    }
+}
+
+void multiply_floats_to_restrict(float multiplier,  float *restrict input, float* restrict output, size_t count)  {
+    for (size_t i = 0; i < count; i++) {
+        float result = input[i]*multiplier;
+        output[i] = result;
+    }
 }
 
 START_QUESTS
@@ -439,20 +591,109 @@ QUEST(45, {
     if (character > 0xff) {
         printf("Caractere n é ascii!\n");
     } else {
-        // CONVERT
-
+        unsigned char uppercase = ascii_to_uppercase(character);
+        printf("O caractere %c em uppercase é %c\n", character, uppercase);
     }
 })
 
+QUEST(46, {
+    int number = promt_dint_or_fail();
+    if (number<100 || number > 999) {
+        printf("Numero não tem 3 digitos!");
+    }
+    int inverted_number = invert_number(number);
+    printf("O numero invertido é %i\n", inverted_number);
+})
 
+QUEST(47, {
+    int number = promt_dint_or_fail();
+    if (number<1000 || number > 9999) {
+        printf("Numero não tem 4 digitos!");
+    }
+    unsigned char digits[4];
+    number_to_digits(number, digits, 4);
+    for (size_t i = 0;i < 4; i++) {
+        printf("%i\n", digits[i]);
+    }
+})
+
+QUEST(48, {
+    int segundos = promt_dint_or_fail();
+    datetime_t datetime = datetime_from_seconds(segundos);
+    unsigned int minutos = datetime_as_minutes(datetime);
+    unsigned int horas =  datetime_as_hours(datetime);
+    printf("%is ou %im ou %ih\n", segundos, minutos, horas);
+})
+
+QUEST(49, {
+    puts("Digite o inicio em h m s e a duracao em s");
+    unsigned int horas = read_int_or_fail(decimal);
+    unsigned int minutos = read_int_or_fail(decimal);
+    unsigned int segundos = read_int_or_fail(decimal);
+    
+    datetime_t experiment_start = datetime_from_components(segundos, minutos, horas);
+    unsigned int duration_seconds = read_int_or_fail(decimal);
+
+    datetime_t experiment_duration = datetime_from_seconds(duration_seconds);
+
+    datetime_t experiment_end = experiment_start+experiment_duration;
+
+    unsigned int end_s;
+    unsigned int end_m;
+    unsigned int end_h;
+
+    datetime_to_components(experiment_end, &end_s, &end_m, &end_h);
+    printf("O final do experimento é às %ih %im %is\n", end_h, end_m, end_s);
+})
+
+QUEST(50, {
+    puts("Digite ano de nascimento e o ano atual.");
+    int idade = read_int_or_fail(decimal);
+    int ano_atual = read_int_or_fail(decimal);
+
+    int ano_nascimento = ano_atual - idade;
+
+    printf("O ano de nascimento é %i\n", ano_nascimento);
+})
+
+QUEST(51, {
+    float coords[2];
+    promt_floats_or_fail(coords, 2);
+    vec2f point = vec2f_from_coords(coords);
+    float distance = vec2f_distance(point);
+
+    printf("A distancia de (%f, %f) da origem é %f\n", point.x, point.y, distance);
+})
+
+QUEST(52, {
+    float invested[3];
+    promt_floats_or_fail(invested, 3);
+    float valor_loteria = promt_float_or_fail();
+
+    float invested_total = sum_of_floats(invested, 3);
+    // Pegar a fracao de cada investidor e salvar em invested
+    divide_floats_to(invested_total, invested, invested, 3);
+    // Multiplicar a fracao de cada investidor pelo valor da loteria
+    multiply_floats_to(valor_loteria, invested, invested, 3);
+
+
+    printf("O primeiro ganhará %f, o segundo ganhará %f e o terceiro ganhará %f\n", invested[0], invested[1], invested[2]);
+})
+
+QUEST(53, {
+    float dimensions[2];
+    promt_floats_or_fail(dimensions, 2);
+    float preco_metro = promt_float_or_fail();
+    
+    float area = dimensions[0]*dimensions[1];
+    float preco = area/preco_metro;
+
+
+    printf("O preco pra cercar o terreno é %f\n", preco);
+})
 END_QUESTS
 
-
-
-
 int main() {
-    RUN_QUEST(22);
-    RUN_QUEST(23);
-    RUN_ALL_QUESTS();
+    RUN_QUEST(53);
     return 0;
 }
