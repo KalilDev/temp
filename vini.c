@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include "hack.h"
+#include <string.h>
 
 #define FLOAT_CONVERSION_BLOCK(a, b, a_from_b_block, b_from_a_block)\
 float a ## _from_ ## b(float b) a_from_b_block \
@@ -248,10 +249,13 @@ size_t number_width(unsigned int number) {
 void number_to_digits(unsigned int number, unsigned char *digits, size_t count) {
     size_t width = number_width(number);
     assert(width <= count);
-    for (size_t i = width; i >=0; i--) {
+    for (size_t i = width; i >0; i--) {
         unsigned int rightmost_digit = number % 10;
-        number/=10;
-        digits[i]=rightmost_digit;
+        number /= 10;
+        digits[i - 1] = rightmost_digit;
+    }
+    for (size_t i=width; i < count; i++) {
+        digits[i] = 0;
     }
 }
 
@@ -608,12 +612,13 @@ QUEST(46, {
 QUEST(47, {
     int number = promt_dint_or_fail();
     if (number<1000 || number > 9999) {
-        printf("Numero não tem 4 digitos!");
-    }
-    unsigned char digits[4];
-    number_to_digits(number, digits, 4);
-    for (size_t i = 0;i < 4; i++) {
-        printf("%i\n", digits[i]);
+        puts("Numero não tem 4 digitos!");
+    } else {
+        unsigned char digits[4];
+        number_to_digits(number, digits, 4);
+        for (size_t i = 0;i < 4; i++) {
+            printf("%i\n", digits[i]);
+        }
     }
 })
 
@@ -693,7 +698,82 @@ QUEST(53, {
 })
 END_QUESTS
 
-int main() {
-    RUN_QUEST(53);
+void run_questions(unsigned int* questions, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        unsigned int question = questions[i];
+        RUN_QUEST(question);
+    }
+}
+
+typedef enum {
+    ps_success,
+    ps_e_zero,
+    ps_e_negative,
+    ps_e_not_a_number,
+} parse_strings_to_uints_result;
+
+parse_strings_to_uints_result parse_strings_to_non_zero_uints(unsigned int *out, char** strings, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        char *string = strings[i];
+        int arg_int;
+        if (sscanf(string, "%d", &arg_int) != 1) {
+            return ps_e_not_a_number;
+        }
+        if (arg_int < 0) {
+            return ps_e_negative;
+        }
+        if (arg_int == 0) {
+            return ps_e_zero;
+        }
+        unsigned int unsigned_arg = arg_int;
+        out[i] = unsigned_arg;
+    }
+    return ps_success;
+}
+
+int main(int argc, char** argv) {
+    if (argc == 1) {
+        puts("Rodando todas as questoes!");
+        RUN_ALL_QUESTS();
+        return 0;
+    }
+
+    if (strcmp(argv[1], "-h") == 0 ||strcmp(argv[1], "--h") == 0) {
+        puts("Uso:");
+        puts("Nenhum argumento rodará todos os testes.");
+        puts("Uma lista de numeros não negativos pode ser usada para rodar os respectivos testes");
+        return 0;
+    }
+
+    int question_count = argc - 1;
+    unsigned int* questoes_a_serem_rodadas = malloc(question_count*sizeof(unsigned int));
+    if (!questoes_a_serem_rodadas) {
+        fputs("Não há memória!\n", stderr);
+        // no need to cleanup
+        return 1;
+    }
+    
+    switch (parse_strings_to_non_zero_uints(questoes_a_serem_rodadas, argv+1, question_count)) {
+        case ps_e_zero:
+        case ps_e_negative:
+            fprintf(stderr, "Os numeros de questão são não negativos e comecam em 1\n");
+            goto cleanup_and_return_failure;
+        case ps_e_not_a_number:
+            fprintf(stderr, "Os argumentos devem ser numeros não negativos ou -h ou --h, para o menu de ajuda!");
+            goto cleanup_and_return_failure;
+        case ps_success: break;
+        default:
+            fprintf(stderr, "Erro desconhecido!");
+            goto cleanup_and_return_failure;
+    }
+
+    run_questions(questoes_a_serem_rodadas, question_count);
+
+    cleanup_and_return_success:
+    free(questoes_a_serem_rodadas);
     return 0;
+
+    cleanup_and_return_failure:
+    free(questoes_a_serem_rodadas);
+    return 1;
 }
